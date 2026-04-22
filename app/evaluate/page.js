@@ -8,6 +8,8 @@ export default function Evaluate() {
   const [runs, setRuns] = useState([]);
   const [runId, setRunId] = useState("");
   const [items, setItems] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [score, setScore] = useState(0);
 
   useEffect(() => {
     loadRuns();
@@ -30,52 +32,105 @@ export default function Evaluate() {
       .eq("run_id", runId);
 
     setItems(data || []);
+    if (data?.length) setSelected(data[0]);
   }
 
-  async function score(itemId, s) {
+  async function save() {
+    if (!score || !selected) return;
+
     await supabase.from("responses").insert({
-      item_id: itemId,
+      item_id: selected.id,
       run_id: runId,
-      score: s
+      score
     });
 
-    loadItems();
+    alert("Saved");
+  }
+
+  function priorityClass(p) {
+    if (p === "high") return "badge high";
+    if (p === "low") return "badge low";
+    return "badge medium";
   }
 
   return (
     <div className="container">
 
-      <h2>Evaluator</h2>
+      <div className="header">
+        <h2>Evaluator</h2>
 
-      <select onChange={(e)=>setRunId(e.target.value)}>
-        {runs.map(r=>(
-          <option key={r.id} value={r.id}>{r.name}</option>
-        ))}
-      </select>
+        <select onChange={(e)=>setRunId(e.target.value)}>
+          {runs.map(r=>(
+            <option key={r.id} value={r.id}>{r.name}</option>
+          ))}
+        </select>
+      </div>
 
       <div className="grid">
 
-        {items.map(item => (
-          <div className="card" key={item.id}>
+        {/* LEFT: TASK LIST */}
+        <div className="card-list">
 
-            <h4>{item.title}</h4>
-
-            <p>{item.description}</p>
-
-            <div>
-              {[1,2,3,4,5].map(s=>(
-                <button key={s} onClick={()=>score(item.id,s)}>
-                  ⭐{s}
-                </button>
-              ))}
+          {items.map(item => (
+            <div
+              key={item.id}
+              className={`card ${selected?.id === item.id ? "active" : ""}`}
+              onClick={()=> {
+                setSelected(item);
+                setScore(0);
+              }}
+            >
+              <div className="title">{item.title}</div>
+              <div className="sub">{item.description?.slice(0,60)}...</div>
             </div>
+          ))}
 
-            <p>Assigned: {item.assigned_to}</p>
-            <p>Status: {item.task_status}</p>
-            <p>Priority: {item.priority}</p>
+        </div>
 
-          </div>
-        ))}
+        {/* RIGHT: DETAIL PANEL */}
+        <div className="detail">
+
+          {selected && (
+            <>
+              <h3>{selected.title}</h3>
+
+              <div className="ai-box">
+                {selected.description}
+              </div>
+
+              <div className="stars">
+                {[1,2,3,4,5].map(s=>(
+                  <span
+                    key={s}
+                    className={s <= score ? "star active" : "star"}
+                    onClick={()=>setScore(s)}
+                  >
+                    ★
+                  </span>
+                ))}
+              </div>
+
+              <div className="row">
+                <span className={priorityClass(selected.priority)}>
+                  {selected.priority}
+                </span>
+
+                <span className="meta">
+                  {selected.task_status}
+                </span>
+              </div>
+
+              <div className="meta">
+                Assigned to: {selected.assigned_to}
+              </div>
+
+              <button className="button" onClick={save}>
+                Save Evaluation
+              </button>
+            </>
+          )}
+
+        </div>
 
       </div>
 
