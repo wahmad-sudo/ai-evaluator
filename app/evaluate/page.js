@@ -6,41 +6,64 @@ import { supabase } from "../../lib/supabase";
 export default function Evaluate() {
 
   const [runs, setRuns] = useState([]);
-  const [runId, setRunId] = useState(null);
+  const [runId, setRunId] = useState("");
   const [items, setItems] = useState([]);
   const [responses, setResponses] = useState([]);
+  const [status, setStatus] = useState("Loading...");
 
   useEffect(() => {
     loadRuns();
   }, []);
 
   useEffect(() => {
-    if (runId) loadData();
+    if (runId) {
+      loadData();
+    }
   }, [runId]);
 
   async function loadRuns() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("runs")
       .select("*")
       .order("start_date", { ascending: false });
 
-    setRuns(data || []);
-    if (data?.length) setRunId(data[0].id);
+    if (error) {
+      setStatus("ERROR loading runs: " + error.message);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      setStatus("NO RUNS FOUND");
+      return;
+    }
+
+    setRuns(data);
+    setRunId(data[0].id);
+    setStatus("Runs loaded");
   }
 
   async function loadData() {
-    const { data: itemsData } = await supabase
+    setStatus("Loading data...");
+
+    const { data: itemsData, error: e1 } = await supabase
       .from("items")
       .select("*")
       .eq("run_id", runId);
 
-    const { data: respData } = await supabase
+    const { data: respData, error: e2 } = await supabase
       .from("responses")
       .select("*")
       .eq("run_id", runId);
 
+    if (e1 || e2) {
+      setStatus("ERROR loading data");
+      console.log(e1, e2);
+      return;
+    }
+
     setItems(itemsData || []);
     setResponses(respData || []);
+    setStatus("Loaded");
   }
 
   async function save(itemId, score) {
@@ -59,19 +82,37 @@ export default function Evaluate() {
   };
 
   return (
-    <div style={{padding:20}}>
+    <div style={{ padding: 20 }}>
 
       <h2>Evaluator</h2>
 
-      {/* RUN SWITCH */}
-      <select value={runId || ""} onChange={(e)=>setRunId(e.target.value)}>
+      <div style={{ marginBottom: 10 }}>
+        <b>Status:</b> {status}
+      </div>
+
+      {/* RUN SELECT */}
+      <select
+        value={runId}
+        onChange={(e)=>setRunId(e.target.value)}
+      >
         {runs.map(r=>(
-          <option key={r.id} value={r.id}>{r.name}</option>
+          <option key={r.id} value={r.id}>
+            {r.name}
+          </option>
         ))}
       </select>
 
-      <div style={{marginTop:20}}>
+      <div style={{ marginTop: 20 }}>
+        <b>Items Count:</b> {items.length}
+      </div>
 
+      <div style={{ marginTop: 10 }}>
+        {items.length === 0 && (
+          <div>⚠️ No items found for this run</div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 20 }}>
         {items.map((item,i)=>{
 
           const score = getScore(item.id);
@@ -79,10 +120,9 @@ export default function Evaluate() {
           return (
             <div key={item.id} style={{
               border:"1px solid #ccc",
-              padding:15,
+              padding:10,
               marginBottom:10
             }}>
-
               <b>Task {i+1}</b>
 
               <div>{item.input}</div>
@@ -106,7 +146,6 @@ export default function Evaluate() {
             </div>
           );
         })}
-
       </div>
 
     </div>
