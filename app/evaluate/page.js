@@ -3,126 +3,66 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
-const ORG_ID = "70386368-862f-4f4d-a2bd-ecff976756d3";
-
 export default function Evaluate() {
-
-  const [runs, setRuns] = useState([]);
-  const [runId, setRunId] = useState("");
   const [items, setItems] = useState([]);
   const [responses, setResponses] = useState([]);
   const [index, setIndex] = useState(0);
-  const [evaluator, setEvaluator] = useState("");
 
-  // Load runs
+  // 🔴 TEMP: use your original working run_id
+  const run_id = "f4790bd3-210e-4657-847d-cf4e619b1d98";
+
   useEffect(() => {
-    loadRuns();
+    load();
   }, []);
 
-  async function loadRuns() {
-    const { data } = await supabase
-      .from("runs")
-      .select("*")
-      .eq("org_id", ORG_ID);
-
-    setRuns(data || []);
-
-    if (data && data.length > 0) {
-      setRunId(data[0].id);
-    }
-  }
-
-  // Load items + responses
-  useEffect(() => {
-    if (runId) {
-      loadItems();
-      loadResponses();
-    }
-  }, [runId]);
-
-  async function loadItems() {
-    const { data } = await supabase
+  async function load() {
+    const { data: itemsData, error: e1 } = await supabase
       .from("items")
       .select("*")
-      .eq("run_id", runId);
+      .eq("run_id", run_id);
 
-    setItems(data || []);
-  }
-
-  async function loadResponses() {
-    const { data } = await supabase
+    const { data: respData, error: e2 } = await supabase
       .from("responses")
       .select("*")
-      .eq("run_id", runId)
-      .eq("org_id", ORG_ID);
+      .eq("run_id", run_id);
 
-    setResponses(data || []);
+    console.log("items:", itemsData);
+    console.log("responses:", respData);
+
+    if (e1 || e2) {
+      console.error(e1 || e2);
+    }
+
+    setItems(itemsData || []);
+    setResponses(respData || []);
   }
 
   async function save(score) {
     const item = items[index];
 
-    // DEDUPE
-    const already = responses.find(
-      r => r.item_id === item.id && r.evaluator_name === evaluator
-    );
-
-    if (already) {
-      alert("Already scored by you");
-      setIndex(index + 1);
-      return;
-    }
-
     await supabase.from("responses").insert({
-      run_id: runId,
+      run_id,
       item_id: item.id,
-      score: score,
-      evaluator_name: evaluator,
-      org_id: ORG_ID
+      score
     });
 
-    loadResponses();
+    load();
 
     if (index < items.length - 1) {
       setIndex(index + 1);
     }
   }
 
-  if (!items.length) return <div style={{padding:40}}>Loading...</div>;
+  if (!items.length) {
+    return <div style={{padding:40}}>Loading or No Data...</div>;
+  }
 
   const item = items[index];
-
-  const completed = new Set(responses.map(r => r.item_id)).size;
-
-  const avg =
-    responses.length > 0
-      ? (responses.reduce((a,b)=>a+(b.score||0),0)/responses.length).toFixed(2)
-      : 0;
 
   return (
     <div style={{padding:40}}>
 
-      <h2>Evaluator</h2>
-
-      {/* RUN SELECTOR */}
-      <select value={runId} onChange={(e)=>setRunId(e.target.value)}>
-        {runs.map(r => (
-          <option key={r.id} value={r.id}>
-            {r.name} ({r.cadence})
-          </option>
-        ))}
-      </select>
-
-      <br/><br/>
-
-      {/* USER */}
-      <input
-        placeholder="Your Name"
-        value={evaluator}
-        onChange={(e)=>setEvaluator(e.target.value)}
-      />
-
-      <h3>Task {index+1}/{items.length}</h3>
+      <h2>Task {index+1} / {items.length}</h2>
 
       <div style={{background:"#eee",padding:10}}>
         {item.input}
@@ -139,19 +79,6 @@ export default function Evaluate() {
           </button>
         ))}
       </div>
-
-      <hr/>
-
-      <h3>Dashboard</h3>
-      <p>Completed: {completed}</p>
-      <p>Avg Score: {avg}</p>
-
-      <h4>History</h4>
-      {responses.map((r,i)=>(
-        <div key={i}>
-          {r.evaluator_name} → {r.score}
-        </div>
-      ))}
 
     </div>
   );
