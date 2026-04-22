@@ -3,18 +3,15 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
-import AnalyticsPanel from "../components/AnalyticsPanel";
-import FilterBar from "../components/FilterBar";
-import Timeline from "../components/Timeline";
-
 export default function Evaluate() {
 
   const [runs, setRuns] = useState([]);
   const [runId, setRunId] = useState("");
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
-  const [score, setScore] = useState(0);
-  const [filter, setFilter] = useState("all");
+
+  // ✅ FIX: score per task (not global)
+  const [scores, setScores] = useState({});
 
   useEffect(() => {
     loadRuns();
@@ -40,8 +37,18 @@ export default function Evaluate() {
     if (data?.length) setSelected(data[0]);
   }
 
+  // ✅ FIX: per-item score
+  function setScore(itemId, value) {
+    setScores(prev => ({
+      ...prev,
+      [itemId]: value
+    }));
+  }
+
   async function save() {
-    if (!score || !selected) return;
+    const score = scores[selected.id];
+
+    if (!score) return;
 
     await supabase.from("responses").insert({
       item_id: selected.id,
@@ -49,14 +56,19 @@ export default function Evaluate() {
       score
     });
 
-    alert("Saved");
+    // ✅ FIX: reload after save
+    await loadItems();
   }
 
   function filteredItems() {
-    if (filter === "pending") return items.filter(i => i.task_status === "pending");
-    if (filter === "completed") return items.filter(i => i.task_status === "completed");
-    if (filter === "high") return items.filter(i => i.priority === "high");
-    return items;
+    // ✅ REMOVE completed tasks from list
+    return items.filter(i => i.task_status !== "completed");
+  }
+
+  function priorityClass(p) {
+    if (p === "high") return "badge high";
+    if (p === "low") return "badge low";
+    return "badge medium";
   }
 
   return (
@@ -70,8 +82,6 @@ export default function Evaluate() {
         ))}
       </select>
 
-      <FilterBar setFilter={setFilter} />
-
       <div className="grid">
 
         {/* LEFT */}
@@ -83,48 +93,49 @@ export default function Evaluate() {
               onClick={()=>setSelected(item)}
             >
               <div className="title">{item.title}</div>
-              <div className="sub">{item.description?.slice(0,60)}...</div>
+              <div className="sub">{item.description}</div>
+
+              <div className="meta">
+                Assigned: {item.assigned_to}
+              </div>
+
+              <div className="meta">
+                Priority: {item.priority}
+              </div>
+
             </div>
           ))}
         </div>
 
         {/* RIGHT */}
-        <div style={{display:"flex", flexDirection:"column", gap:20}}>
+        <div className="detail">
 
-          {/* DETAIL */}
-          <div className="detail">
-            {selected && (
-              <>
-                <h3>{selected.title}</h3>
+          {selected && (
+            <>
+              <h3>{selected.title}</h3>
 
-                <div className="ai-box">
-                  {selected.description}
-                </div>
+              <div className="ai-box">
+                {selected.description}
+              </div>
 
-                <div className="stars">
-                  {[1,2,3,4,5].map(s=>(
-                    <span
-                      key={s}
-                      className={s <= score ? "star active" : "star"}
-                      onClick={()=>setScore(s)}
-                    >
-                      ★
-                    </span>
-                  ))}
-                </div>
+              {/* ⭐ FIXED STARS */}
+              <div className="stars">
+                {[1,2,3,4,5].map(s=>(
+                  <span
+                    key={s}
+                    className={s <= (scores[selected.id] || 0) ? "star active" : "star"}
+                    onClick={()=>setScore(selected.id, s)}
+                  >
+                    ★
+                  </span>
+                ))}
+              </div>
 
-                <button className="button" onClick={save}>
-                  Save Evaluation
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* ANALYTICS */}
-          <AnalyticsPanel items={items} />
-
-          {/* TIMELINE */}
-          <Timeline item={selected} />
+              <button className="button" onClick={save}>
+                Save Evaluation
+              </button>
+            </>
+          )}
 
         </div>
 
