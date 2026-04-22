@@ -11,25 +11,19 @@ export default function Evaluate() {
 
   useEffect(() => {
     async function fetchItems() {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("items")
         .select("*")
         .eq("run_id", run_id)
         .order("position");
 
-      if (error) {
-        console.error(error);
-      } else {
-        setItems(data || []);
-      }
+      setItems(data || []);
     }
 
     fetchItems();
   }, []);
 
   async function saveResponse(value) {
-    console.log("Clicked:", value);
-
     await supabase.from("responses").insert({
       run_id,
       item_id: items[index]?.id,
@@ -38,36 +32,128 @@ export default function Evaluate() {
     });
   }
 
-  if (!items.length) return <div>Loading...</div>;
+  if (!items.length) return <div style={{padding:40}}>Loading...</div>;
 
   const item = items[index];
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>Progress: {index + 1} / {items.length}</h2>
+    <div style={{
+      maxWidth: 800,
+      margin: "40px auto",
+      padding: 20,
+      fontFamily: "Arial"
+    }}>
+      
+      {/* HEADER */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        marginBottom: 20
+      }}>
+        <h2>AI Evaluator</h2>
+        <div>
+          {index + 1} / {items.length}
+        </div>
+      </div>
 
-      <h3>{item.input}</h3>
-      <p>{item.ai_output}</p>
+      {/* PROGRESS BAR */}
+      <div style={{
+        height: 6,
+        background: "#eee",
+        borderRadius: 4,
+        marginBottom: 30
+      }}>
+        <div style={{
+          width: `${((index + 1) / items.length) * 100}%`,
+          height: "100%",
+          background: "#4f46e5",
+          borderRadius: 4
+        }} />
+      </div>
 
-      <div style={{ marginTop: 20 }}>
-        <button onClick={() => saveResponse("Very Helpful")}>
+      {/* CARD */}
+      <div style={{
+        border: "1px solid #e5e5e5",
+        borderRadius: 12,
+        padding: 20,
+        marginBottom: 30
+      }}>
+        <h4 style={{marginBottom:10}}>Input</h4>
+        <p style={{marginBottom:20}}>{item.input}</p>
+
+        <h4 style={{marginBottom:10}}>AI Output</h4>
+        <p>{item.ai_output}</p>
+      </div>
+
+      {/* ACTION BUTTONS */}
+      <div style={{
+        display: "flex",
+        gap: 10,
+        marginBottom: 30
+      }}>
+        <button
+          onClick={() => saveResponse("Very Helpful")}
+          style={{
+            flex: 1,
+            padding: "12px",
+            borderRadius: 8,
+            border: "none",
+            background: "#4f46e5",
+            color: "white",
+            cursor: "pointer"
+          }}
+        >
           Helpful
         </button>
 
-        <button onClick={() => saveResponse("Not Helpful")}>
+        <button
+          onClick={() => saveResponse("Not Helpful")}
+          style={{
+            flex: 1,
+            padding: "12px",
+            borderRadius: 8,
+            border: "none",
+            background: "#ef4444",
+            color: "white",
+            cursor: "pointer"
+          }}
+        >
           Not Helpful
         </button>
       </div>
 
-      <br />
+      {/* NAVIGATION */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between"
+      }}>
+        <button
+          onClick={() => setIndex(index - 1)}
+          disabled={index === 0}
+          style={{
+            padding: "10px 16px",
+            borderRadius: 8,
+            border: "1px solid #ddd",
+            cursor: "pointer"
+          }}
+        >
+          Prev
+        </button>
 
-      <button onClick={() => setIndex(index - 1)} disabled={index === 0}>
-        Prev
-      </button>
+        <button
+          onClick={() => setIndex(index + 1)}
+          disabled={index === items.length - 1}
+          style={{
+            padding: "10px 16px",
+            borderRadius: 8,
+            border: "1px solid #ddd",
+            cursor: "pointer"
+          }}
+        >
+          Next
+        </button>
+      </div>
 
-      <button onClick={() => setIndex(index + 1)} disabled={index === items.length - 1}>
-        Next
-      </button>
     </div>
   );
 }
