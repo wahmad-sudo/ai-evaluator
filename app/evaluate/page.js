@@ -8,131 +8,140 @@ export default function Evaluate() {
 
   const [items, setItems] = useState([]);
   const [index, setIndex] = useState(0);
+  const [responses, setResponses] = useState([]);
 
   useEffect(() => {
-    async function fetchItems() {
-      const { data } = await supabase
-        .from("items")
-        .select("*")
-        .eq("run_id", run_id)
-        .order("position");
-
-      setItems(data || []);
-    }
-
     fetchItems();
+    fetchResponses();
   }, []);
 
-  async function saveResponse(value) {
+  async function fetchItems() {
+    const { data } = await supabase
+      .from("items")
+      .select("*")
+      .eq("run_id", run_id)
+      .order("position");
+
+    setItems(data || []);
+  }
+
+  async function fetchResponses() {
+    const { data } = await supabase
+      .from("responses")
+      .select("*")
+      .eq("run_id", run_id);
+
+    setResponses(data || []);
+  }
+
+  async function saveResponse(score) {
+    const item = items[index];
+
     await supabase.from("responses").insert({
       run_id,
-      item_id: items[index]?.id,
-      helpfulness: value,
+      item_id: item.id,
+      score: score,
       status: "completed",
     });
 
-    // auto move next (premium UX)
+    fetchResponses();
+
     if (index < items.length - 1) {
       setIndex(index + 1);
     }
   }
 
-  if (!items.length) return <div className="p-10 text-center">Loading...</div>;
+  if (!items.length) return <div className="p-10">Loading...</div>;
 
   const item = items[index];
 
+  // 📊 Metrics
+  const completed = responses.length;
+  const avgScore =
+    responses.length > 0
+      ? (responses.reduce((a, b) => a + (b.score || 0), 0) / responses.length).toFixed(2)
+      : 0;
+
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex">
 
-      {/* HEADER */}
-      <div className="bg-white border-b px-8 py-4 flex justify-between items-center">
-        <h1 className="text-xl font-semibold">AI Evaluator</h1>
-        <span className="text-sm text-gray-500">
-          {index + 1} / {items.length}
-        </span>
-      </div>
+      {/* LEFT PANEL */}
+      <div className="w-2/3 p-8">
 
-      {/* MAIN */}
-      <div className="flex-1 flex justify-center px-4 py-10">
+        <h2 className="text-xl font-semibold mb-4">
+          Evaluation ({index + 1}/{items.length})
+        </h2>
 
-        <div className="w-full max-w-3xl">
+        <div className="bg-white p-6 rounded-xl shadow space-y-6">
 
-          {/* PROGRESS */}
-          <div className="w-full bg-gray-200 h-2 rounded-full mb-8">
-            <div
-              className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
-              style={{
-                width: `${((index + 1) / items.length) * 100}%`,
-              }}
-            />
+          <div>
+            <p className="text-sm text-gray-500">Input</p>
+            <div className="bg-gray-100 p-3 rounded">{item.input}</div>
           </div>
 
-          {/* CARD */}
-          <div className="bg-white rounded-xl shadow-sm border p-6 space-y-6">
-
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Input</p>
-              <div className="bg-gray-50 p-3 rounded-md">
-                {item.input}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-xs text-gray-500 mb-1">AI Output</p>
-              <div className="bg-gray-50 p-3 rounded-md">
-                {item.ai_output}
-              </div>
-            </div>
-
-            {/* ACTIONS */}
-            <div className="grid grid-cols-2 gap-3 pt-4">
-
-              <button
-                onClick={() => saveResponse("Very Helpful")}
-                className="bg-green-500 hover:bg-green-600 text-white py-3 rounded-md font-medium transition"
-              >
-                👍 Helpful
-              </button>
-
-              <button
-                onClick={() => saveResponse("Not Helpful")}
-                className="bg-red-500 hover:bg-red-600 text-white py-3 rounded-md font-medium transition"
-              >
-                👎 Not Helpful
-              </button>
-
-            </div>
-
+          <div>
+            <p className="text-sm text-gray-500">AI Output</p>
+            <div className="bg-gray-100 p-3 rounded">{item.ai_output}</div>
           </div>
 
-          {/* NAV */}
-          <div className="flex justify-between mt-6">
-
-            <button
-              onClick={() => setIndex(index - 1)}
-              disabled={index === 0}
-              className="px-4 py-2 border rounded-md bg-white hover:bg-gray-100 disabled:opacity-40"
-            >
-              Prev
-            </button>
-
-            <button
-              onClick={() => setIndex(index + 1)}
-              disabled={index === items.length - 1}
-              className="px-4 py-2 border rounded-md bg-white hover:bg-gray-100 disabled:opacity-40"
-            >
-              Next
-            </button>
-
+          {/* ⭐ SCORING */}
+          <div className="flex gap-2 pt-4">
+            {[1,2,3,4,5].map(s => (
+              <button
+                key={s}
+                onClick={() => saveResponse(s)}
+                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+              >
+                {s}★
+              </button>
+            ))}
           </div>
 
         </div>
 
       </div>
 
-      {/* FOOTER */}
-      <div className="text-center text-sm text-gray-400 pb-6">
-        Built with AI • Evaluation Engine
+      {/* RIGHT PANEL (Dashboard) */}
+      <div className="w-1/3 bg-white border-l p-6 space-y-6">
+
+        <h3 className="font-semibold">Live Stats</h3>
+
+        {/* Widgets */}
+        <div className="space-y-4">
+
+          <div className="p-4 border rounded">
+            <p className="text-sm text-gray-500">Completed</p>
+            <p className="text-xl font-semibold">{completed}</p>
+          </div>
+
+          <div className="p-4 border rounded">
+            <p className="text-sm text-gray-500">Avg Score</p>
+            <p className="text-xl font-semibold">{avgScore}</p>
+          </div>
+
+        </div>
+
+        {/* HISTORY */}
+        <div>
+          <h4 className="font-medium mb-2">History</h4>
+
+          <div className="space-y-2 max-h-64 overflow-auto">
+            {responses.map((r, i) => (
+              <div key={i} className="text-sm border p-2 rounded">
+                Score: {r.score}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* LOGS */}
+        <div>
+          <h4 className="font-medium mb-2">Logs</h4>
+          <div className="text-xs text-gray-500">
+            {responses.length} evaluations recorded
+          </div>
+        </div>
+
       </div>
 
     </div>
