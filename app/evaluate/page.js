@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
+import AnalyticsPanel from "../components/AnalyticsPanel";
+import FilterBar from "../components/FilterBar";
+import Timeline from "../components/Timeline";
+
 export default function Evaluate() {
 
   const [runs, setRuns] = useState([]);
@@ -10,6 +14,7 @@ export default function Evaluate() {
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
   const [score, setScore] = useState(0);
+  const [filter, setFilter] = useState("all");
 
   useEffect(() => {
     loadRuns();
@@ -47,88 +52,79 @@ export default function Evaluate() {
     alert("Saved");
   }
 
-  function priorityClass(p) {
-    if (p === "high") return "badge high";
-    if (p === "low") return "badge low";
-    return "badge medium";
+  function filteredItems() {
+    if (filter === "pending") return items.filter(i => i.task_status === "pending");
+    if (filter === "completed") return items.filter(i => i.task_status === "completed");
+    if (filter === "high") return items.filter(i => i.priority === "high");
+    return items;
   }
 
   return (
     <div className="container">
 
-      <div className="header">
-        <h2>Evaluator</h2>
+      <h2>Evaluator</h2>
 
-        <select onChange={(e)=>setRunId(e.target.value)}>
-          {runs.map(r=>(
-            <option key={r.id} value={r.id}>{r.name}</option>
-          ))}
-        </select>
-      </div>
+      <select onChange={(e)=>setRunId(e.target.value)}>
+        {runs.map(r=>(
+          <option key={r.id} value={r.id}>{r.name}</option>
+        ))}
+      </select>
+
+      <FilterBar setFilter={setFilter} />
 
       <div className="grid">
 
-        {/* LEFT: TASK LIST */}
+        {/* LEFT */}
         <div className="card-list">
-
-          {items.map(item => (
+          {filteredItems().map(item => (
             <div
               key={item.id}
               className={`card ${selected?.id === item.id ? "active" : ""}`}
-              onClick={()=> {
-                setSelected(item);
-                setScore(0);
-              }}
+              onClick={()=>setSelected(item)}
             >
               <div className="title">{item.title}</div>
               <div className="sub">{item.description?.slice(0,60)}...</div>
             </div>
           ))}
-
         </div>
 
-        {/* RIGHT: DETAIL PANEL */}
-        <div className="detail">
+        {/* RIGHT */}
+        <div style={{display:"flex", flexDirection:"column", gap:20}}>
 
-          {selected && (
-            <>
-              <h3>{selected.title}</h3>
+          {/* DETAIL */}
+          <div className="detail">
+            {selected && (
+              <>
+                <h3>{selected.title}</h3>
 
-              <div className="ai-box">
-                {selected.description}
-              </div>
+                <div className="ai-box">
+                  {selected.description}
+                </div>
 
-              <div className="stars">
-                {[1,2,3,4,5].map(s=>(
-                  <span
-                    key={s}
-                    className={s <= score ? "star active" : "star"}
-                    onClick={()=>setScore(s)}
-                  >
-                    ★
-                  </span>
-                ))}
-              </div>
+                <div className="stars">
+                  {[1,2,3,4,5].map(s=>(
+                    <span
+                      key={s}
+                      className={s <= score ? "star active" : "star"}
+                      onClick={()=>setScore(s)}
+                    >
+                      ★
+                    </span>
+                  ))}
+                </div>
 
-              <div className="row">
-                <span className={priorityClass(selected.priority)}>
-                  {selected.priority}
-                </span>
+                <button className="button" onClick={save}>
+                  Save Evaluation
+                </button>
+              </>
+            )}
+          </div>
 
-                <span className="meta">
-                  {selected.task_status}
-                </span>
-              </div>
+          {/* ANALYTICS */}
+          <AnalyticsPanel items={items} />
 
-              <div className="meta">
-                Assigned to: {selected.assigned_to}
-              </div>
-
-              <button className="button" onClick={save}>
-                Save Evaluation
-              </button>
-            </>
-          )}
+          {/* TIMELINE */}
+          <Timeline item={selected} />
 
         </div>
 
