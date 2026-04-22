@@ -32,126 +32,166 @@ export default function Evaluate() {
     });
   }
 
-  if (!items.length) return <div style={{padding:40}}>Loading...</div>;
+  if (!items.length) return <div style={{ padding: 40 }}>Loading...</div>;
 
   const item = items[index];
 
   return (
-    <div style={{
-      maxWidth: 800,
-      margin: "40px auto",
-      padding: 20,
-      fontFamily: "Arial"
-    }}>
-      
+    <div style={{ fontFamily: "Inter, Arial", background: "#f8fafc", minHeight: "100vh" }}>
+
       {/* HEADER */}
       <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        marginBottom: 20
-      }}>
-        <h2>AI Evaluator</h2>
-        <div>
-          {index + 1} / {items.length}
-        </div>
-      </div>
-
-      {/* PROGRESS BAR */}
-      <div style={{
-        height: 6,
-        background: "#eee",
-        borderRadius: 4,
-        marginBottom: 30
-      }}>
-        <div style={{
-          width: `${((index + 1) / items.length) * 100}%`,
-          height: "100%",
-          background: "#4f46e5",
-          borderRadius: 4
-        }} />
-      </div>
-
-      {/* CARD */}
-      <div style={{
-        border: "1px solid #e5e5e5",
-        borderRadius: 12,
-        padding: 20,
-        marginBottom: 30
-      }}>
-        <h4 style={{marginBottom:10}}>Input</h4>
-        <p style={{marginBottom:20}}>{item.input}</p>
-
-        <h4 style={{marginBottom:10}}>AI Output</h4>
-        <p>{item.ai_output}</p>
-      </div>
-
-      {/* ACTION BUTTONS */}
-      <div style={{
-        display: "flex",
-        gap: 10,
-        marginBottom: 30
-      }}>
-        <button
-          onClick={() => saveResponse("Very Helpful")}
-          style={{
-            flex: 1,
-            padding: "12px",
-            borderRadius: 8,
-            border: "none",
-            background: "#4f46e5",
-            color: "white",
-            cursor: "pointer"
-          }}
-        >
-          Helpful
-        </button>
-
-        <button
-          onClick={() => saveResponse("Not Helpful")}
-          style={{
-            flex: 1,
-            padding: "12px",
-            borderRadius: 8,
-            border: "none",
-            background: "#ef4444",
-            color: "white",
-            cursor: "pointer"
-          }}
-        >
-          Not Helpful
-        </button>
-      </div>
-
-      {/* NAVIGATION */}
-      <div style={{
+        background: "white",
+        padding: "16px 32px",
+        borderBottom: "1px solid #e5e7eb",
         display: "flex",
         justifyContent: "space-between"
       }}>
-        <button
-          onClick={() => setIndex(index - 1)}
-          disabled={index === 0}
-          style={{
-            padding: "10px 16px",
-            borderRadius: 8,
-            border: "1px solid #ddd",
-            cursor: "pointer"
-          }}
-        >
-          Prev
-        </button>
+        <h2 style={{ margin: 0 }}>AI Evaluator</h2>
+        <div>Task {index + 1} / {items.length}</div>
+      </div>
 
-        <button
-          onClick={() => setIndex(index + 1)}
-          disabled={index === items.length - 1}
-          style={{
-            padding: "10px 16px",
-            borderRadius: 8,
-            border: "1px solid #ddd",
-            cursor: "pointer"
-          }}
-        >
-          Next
-        </button>
+      {/* MAIN */}
+      <div style={{
+        maxWidth: 900,
+        margin: "40px auto",
+        padding: 20
+      }}>
+
+        {/* PROGRESS BAR */}
+        <div style={{
+          height: 8,
+          background: "#e5e7eb",
+          borderRadius: 6,
+          marginBottom: 30
+        }}>
+          <div style={{
+            width: `${((index + 1) / items.length) * 100}%`,
+            height: "100%",
+            background: "#6366f1",
+            borderRadius: 6
+          }} />
+        </div>
+
+        {/* CARD */}
+        <div style={{
+          background: "white",
+          borderRadius: 12,
+          padding: 24,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.05)"
+        }}>
+
+          {/* INPUT */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: 13, color: "#6b7280" }}>Input</label>
+            <div style={{
+              marginTop: 6,
+              padding: 12,
+              background: "#f9fafb",
+              borderRadius: 8
+            }}>
+              {item.input}
+            </div>
+          </div>
+
+          {/* OUTPUT */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: 13, color: "#6b7280" }}>AI Output</label>
+            <div style={{
+              marginTop: 6,
+              padding: 12,
+              background: "#f9fafb",
+              borderRadius: 8
+            }}>
+              {item.ai_output}
+            </div>
+          </div>
+
+          {/* BUTTONS */}
+          <div style={{
+            display: "flex",
+            gap: 12,
+            marginTop: 20
+          }}>
+            <button
+              onClick={() => saveResponse("Very Helpful")}
+              style={{
+                flex: 1,
+                padding: "12px",
+                borderRadius: 8,
+                border: "none",
+                background: "#10b981",
+                color: "white",
+                fontWeight: 600,
+                cursor: "pointer"
+              }}
+            >
+              👍 Helpful
+            </button>
+
+            <button
+              onClick={() => saveResponse("Not Helpful")}
+              style={{
+                flex: 1,
+                padding: "12px",
+                borderRadius: 8,
+                border: "none",
+                background: "#ef4444",
+                color: "white",
+                fontWeight: 600,
+                cursor: "pointer"
+              }}
+            >
+              👎 Not Helpful
+            </button>
+          </div>
+
+        </div>
+
+        {/* NAV */}
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginTop: 30
+        }}>
+          <button
+            onClick={() => setIndex(index - 1)}
+            disabled={index === 0}
+            style={{
+              padding: "10px 16px",
+              borderRadius: 8,
+              border: "1px solid #d1d5db",
+              background: "white",
+              cursor: "pointer"
+            }}
+          >
+            Prev
+          </button>
+
+          <button
+            onClick={() => setIndex(index + 1)}
+            disabled={index === items.length - 1}
+            style={{
+              padding: "10px 16px",
+              borderRadius: 8,
+              border: "1px solid #d1d5db",
+              background: "white",
+              cursor: "pointer"
+            }}
+          >
+            Next
+          </button>
+        </div>
+
+      </div>
+
+      {/* FOOTER */}
+      <div style={{
+        textAlign: "center",
+        padding: 20,
+        color: "#9ca3af"
+      }}>
+        © AI Evaluator • Built for fast evaluation workflows
       </div>
 
     </div>
