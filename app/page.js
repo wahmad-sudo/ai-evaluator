@@ -1,24 +1,31 @@
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <div className="bg-white p-10 rounded-xl shadow-xl text-center space-y-6">
-        <h1 className="text-3xl font-bold">AI Evaluator</h1>
-        <p className="text-gray-500">Enterprise Evaluation Platform</p>
+    <div className="min-h-screen bg-[#0f172a] text-white">
 
-        <div className="flex gap-4 justify-center">
-          <a href="/evaluate">
-            <button className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
-              Open Evaluator
-            </button>
-          </a>
-
-          <a href="/dashboard">
-            <button className="bg-gray-200 px-6 py-2 rounded-lg hover:bg-gray-300">
-              Dashboard
-            </button>
-          </a>
-        </div>
+      <div className="flex justify-between items-center px-6 py-4 border-b border-gray-700 bg-[#020617]">
+        <h1 className="font-semibold">VectorTechSol Dashboard</h1>
+        <span>👤 Waqar</span>
       </div>
+
+      <div className="p-6 grid grid-cols-3 gap-4">
+
+        <a href="/evaluate" className="bg-[#020617] p-6 rounded border border-gray-700 hover:bg-gray-800">
+          <h2 className="text-lg">🧠 Evaluator</h2>
+          <p className="text-xs text-gray-400">Score tasks</p>
+        </a>
+
+        <a href="/dashboard" className="bg-[#020617] p-6 rounded border border-gray-700 hover:bg-gray-800">
+          <h2 className="text-lg">📊 Dashboard</h2>
+          <p className="text-xs text-gray-400">Analytics</p>
+        </a>
+
+        <a href="/runs" className="bg-[#020617] p-6 rounded border border-gray-700 hover:bg-gray-800">
+          <h2 className="text-lg">📅 Runs</h2>
+          <p className="text-xs text-gray-400">Manage backlog</p>
+        </a>
+
+      </div>
+
     </div>
   );
 }
