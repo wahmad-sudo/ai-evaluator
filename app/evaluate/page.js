@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 const RUN_ID = "f4790bd3-210e-4657-847d-cf4e619b1d98";
+const RUN_NAME = "Daily Evaluation Run";
+const ORG_NAME = "VectorTechSol";
+const USER_NAME = "Waqar Ahmad";
 
 export default function Evaluate() {
-
   const [items, setItems] = useState([]);
   const [responses, setResponses] = useState([]);
-  const [user, setUser] = useState("Waqar");
+  const [activityFilter, setActivityFilter] = useState("all");
 
   useEffect(() => {
     load();
@@ -19,7 +21,8 @@ export default function Evaluate() {
     const { data: itemsData } = await supabase
       .from("items")
       .select("*")
-      .eq("run_id", RUN_ID);
+      .eq("run_id", RUN_ID)
+      .order("position");
 
     const { data: respData } = await supabase
       .from("responses")
@@ -31,120 +34,207 @@ export default function Evaluate() {
   }
 
   async function save(itemId, score) {
+    const existing = responses.find(
+      (r) => r.item_id === itemId && r.evaluator_name === USER_NAME
+    );
+
+    if (existing) {
+      return;
+    }
+
     await supabase.from("responses").insert({
       run_id: RUN_ID,
       item_id: itemId,
       score,
-      evaluator_name: user
+      evaluator_name: USER_NAME,
+      organization_name: ORG_NAME,
     });
 
     load();
   }
 
-  const getScore = (id) => {
-    const r = responses.find(x => x.item_id === id);
-    return r ? r.score : null;
-  };
+  const itemScoreMap = {};
+  responses.forEach((r) => {
+    if (!(r.item_id in itemScoreMap)) itemScoreMap[r.item_id] = r.score;
+  });
 
-  const completed = new Set(responses.map(r=>r.item_id)).size;
+  const completed = new Set(responses.map((r) => r.item_id)).size;
   const avg =
     responses.length > 0
-      ? (responses.reduce((a,b)=>a+(b.score||0),0)/responses.length).toFixed(2)
-      : 0;
+      ? (responses.reduce((a, b) => a + (b.score || 0), 0) / responses.length).toFixed(2)
+      : "0.00";
+
+  const lowCount = responses.filter((r) => (r.score || 0) <= 2).length;
+  const highCount = responses.filter((r) => (r.score || 0) >= 4).length;
+  const pending = Math.max(items.length - completed, 0);
+
+  const activity = useMemo(() => {
+    if (activityFilter === "low") {
+      return responses.filter((r) => (r.score || 0) <= 2);
+    }
+    if (activityFilter === "high") {
+      return responses.filter((r) => (r.score || 0) >= 4);
+    }
+    return responses;
+  }, [responses, activityFilter]);
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="topbar-inner">
+          <div>
+            <div className="brand-title">{ORG_NAME}</div>
+            <div className="brand-sub">{RUN_NAME} • Run ID {RUN_ID.slice(0, 8)}...</div>
+          </div>
 
-      {/* HEADER */}
-      <div className="w-full bg-white border-b px-8 py-4 flex justify-between items-center">
-        <div>
-          <h1 className="text-xl font-semibold">VectorTechSol</h1>
-          <p className="text-sm text-gray-500">Daily Evaluation Run</p>
+          <div className="top-meta">
+            <div className="top-pill">👤 {USER_NAME}</div>
+            <div className="top-pill">Contact: ops@vectortechsol.com</div>
+            <div className="top-pill">Address: Frisco, Texas</div>
+            <button className="btn btn-primary">Export</button>
+          </div>
         </div>
+      </header>
 
-        <div className="flex gap-4 items-center">
-          <span className="text-sm">👤 {user}</span>
-          <button className="bg-indigo-600 text-white px-4 py-2 rounded">
-            Export
-          </button>
-        </div>
-      </div>
+      <main className="page">
+        <section className="run-summary">
+          <div className="summary-box">
+            <div className="summary-label">Run Name</div>
+            <div className="summary-value">{RUN_NAME}</div>
+          </div>
+          <div className="summary-box">
+            <div className="summary-label">Completed</div>
+            <div className="summary-value">{completed}</div>
+          </div>
+          <div className="summary-box">
+            <div className="summary-label">Pending</div>
+            <div className="summary-value">{pending}</div>
+          </div>
+          <div className="summary-box">
+            <div className="summary-label">Average Score</div>
+            <div className="summary-value">{avg}</div>
+          </div>
+        </section>
 
-      {/* BODY */}
-      <div className="w-full px-8 py-6 grid grid-cols-4 gap-6">
+        <section className="main-grid">
+          <div className="stack">
+            {items.map((item, i) => {
+              const savedScore = itemScoreMap[item.id] || null;
+              const done = !!savedScore;
 
-        {/* TASKS */}
-        <div className="col-span-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              return (
+                <div key={item.id} className="task-card">
+                  <div className="task-head">
+                    <div className="task-title">Task {i + 1}</div>
+                    <div className={`status-badge ${done ? "status-done" : "status-pending"}`}>
+                      {done ? "Completed" : "Pending Review"}
+                    </div>
+                  </div>
 
-          {items.map((item, i) => {
+                  <div className="task-grid">
+                    <div className="info-box">
+                      <div className="info-label">Input</div>
+                      <div className="info-text">{item.input}</div>
+                    </div>
 
-            const score = getScore(item.id);
+                    <div className="info-box">
+                      <div className="info-label">AI Output</div>
+                      <div className="info-text">{item.ai_output}</div>
+                    </div>
+                  </div>
 
-            return (
-              <div key={item.id} className="bg-white rounded-xl shadow p-5 border">
+                  <div className="score-row">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => save(item.id, s)}
+                        className={`score-btn ${savedScore === s ? "active" : ""}`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
-                <div className="flex justify-between text-sm text-gray-500">
-                  <span>Task {i+1}</span>
-                  <span>{score ? "✅ Done" : "Pending"}</span>
+          <div className="right-col stack">
+            <div className="panel panel-pad">
+              <h3 className="section-title">Live Widgets</h3>
+              <div className="widget-grid">
+                <div className="widget">
+                  <div className="widget-label">Completed</div>
+                  <div className="widget-value">{completed}</div>
+                  <div className="widget-link" onClick={() => setActivityFilter("all")}>Show all activity</div>
                 </div>
 
-                <div className="mt-3 font-medium text-gray-800">
-                  {item.input}
+                <div className="widget">
+                  <div className="widget-label">Average Score</div>
+                  <div className="widget-value">{avg}</div>
+                  <div className="widget-link">Run quality snapshot</div>
                 </div>
 
-                <div className="mt-2 text-sm text-gray-500">
-                  {item.ai_output}
+                <div className="widget">
+                  <div className="widget-label">High Scores</div>
+                  <div className="widget-value">{highCount}</div>
+                  <div className="widget-link" onClick={() => setActivityFilter("high")}>Filter 4–5 only</div>
                 </div>
 
-                <div className="mt-4 flex gap-2 flex-wrap">
-                  {[1,2,3,4,5].map(s => (
-                    <button
-                      key={s}
-                      onClick={()=>save(item.id, s)}
-                      className={`px-3 py-1 rounded text-sm border
-                        ${score===s ? "bg-green-500 text-white" : "bg-gray-100"}
-                      `}
-                    >
-                      {s}
-                    </button>
-                  ))}
+                <div className="widget">
+                  <div className="widget-label">Low Scores</div>
+                  <div className="widget-value">{lowCount}</div>
+                  <div className="widget-link" onClick={() => setActivityFilter("low")}>Filter 1–2 only</div>
                 </div>
-
               </div>
-            );
-          })}
+            </div>
 
-        </div>
+            <div className="panel panel-pad">
+              <h3 className="section-title">Recent Activity</h3>
+              <div className="activity-list">
+                {activity.length === 0 ? (
+                  <div className="activity-item">No activity in this filter.</div>
+                ) : (
+                  activity.map((r, idx) => (
+                    <div key={idx} className="activity-item">
+                      <div className="activity-top">
+                        <strong>{r.evaluator_name || USER_NAME}</strong>
+                        <span className="status-badge">{r.score} / 5</span>
+                      </div>
+                      <div className="activity-meta">
+                        Item {String(r.item_id).slice(0, 8)}... • {ORG_NAME}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
 
-        {/* SIDE PANEL */}
-        <div className="space-y-6">
-
-          <div className="bg-white p-6 rounded-xl shadow border">
-            <p className="text-sm text-gray-500">Completed</p>
-            <h2 className="text-3xl font-bold">{completed}</h2>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow border">
-            <p className="text-sm text-gray-500">Average Score</p>
-            <h2 className="text-3xl font-bold">{avg}</h2>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow border">
-            <p className="text-sm text-gray-500 mb-2">Recent Activity</p>
-
-            <div className="space-y-1 text-sm max-h-48 overflow-auto">
-              {responses.map((r,i)=>(
-                <div key={i}>
-                  {r.evaluator_name} → {r.score}
+            <div className="panel panel-pad">
+              <h3 className="section-title">Messages</h3>
+              <div className="message-list">
+                <div className="message-item">
+                  <div className="message-meta">Operations</div>
+                  <div>Current run is active and all task cards are grouped under the same run summary.</div>
                 </div>
-              ))}
+                <div className="message-item">
+                  <div className="message-meta">Quality</div>
+                  <div>Use low-score filter to inspect weaker responses needing attention.</div>
+                </div>
+                <div className="message-item">
+                  <div className="message-meta">Product</div>
+                  <div>Dashboard and Runs pages are available from the home control panel.</div>
+                </div>
+              </div>
+
+              <div className="action-row" style={{ marginTop: 14 }}>
+                <a className="btn" href="/dashboard">Open Dashboard</a>
+                <a className="btn" href="/runs">Open Runs</a>
+              </div>
             </div>
           </div>
-
-        </div>
-
-      </div>
-
+        </section>
+      </main>
     </div>
   );
 }
