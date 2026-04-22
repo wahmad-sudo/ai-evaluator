@@ -1,29 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
-const run_id = "f4790bd3-210e-4657-847d-cf4e619b1d98";
-
 export default function Evaluate() {
+  const run_id = "f4790bd3-210e-4657-847d-cf4e619b1d98";
+
   const [items, setItems] = useState([]);
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
+    async function fetchItems() {
+      const { data, error } = await supabase
+        .from("items")
+        .select("*")
+        .eq("run_id", run_id)
+        .order("position");
+
+      if (error) {
+        console.error(error);
+      } else {
+        setItems(data || []);
+      }
+    }
+
     fetchItems();
   }, []);
 
-  async function fetchItems() {
-    const { data } = await supabase
-      .from("items")
-      .select("*")
-      .eq("run_id", run_id)
-      .order("position");
-
-    setItems(data || []);
-  }
-
   async function saveResponse(value) {
+    console.log("Clicked:", value);
+
     await supabase.from("responses").insert({
       run_id,
       item_id: items[index]?.id,
@@ -43,15 +49,17 @@ export default function Evaluate() {
       <h3>{item.input}</h3>
       <p>{item.ai_output}</p>
 
-      <button onClick={() => saveResponse("Very Helpful")}>
-        Helpful
-      </button>
+      <div style={{ marginTop: 20 }}>
+        <button onClick={() => saveResponse("Very Helpful")}>
+          Helpful
+        </button>
 
-      <button onClick={() => saveResponse("Not Helpful")}>
-        Not Helpful
-      </button>
+        <button onClick={() => saveResponse("Not Helpful")}>
+          Not Helpful
+        </button>
+      </div>
 
-      <br /><br />
+      <br />
 
       <button onClick={() => setIndex(index - 1)} disabled={index === 0}>
         Prev
