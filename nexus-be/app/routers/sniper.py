@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.middleware.auth import get_current_user
 from app.models.sniper_run import SniperRun
 from app.models.sniper_timeline import SniperTimelineStep
 from app.models.sniper_match import SniperMatch
@@ -30,13 +31,22 @@ router = APIRouter()
 
 
 @router.post("/runs", response_model=SniperRunResponse)
-def create_sniper_run(payload: SniperRunCreate, db: Session = Depends(get_db)):
+def create_sniper_run(
+    payload: SniperRunCreate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    payload.created_by = str(current_user.get("id", ""))
     run = orchestrator.create_and_run_sniper_workflow(db, payload)
     return run
 
 
 @router.get("/runs/{run_id}", response_model=SniperRunResponse)
-def get_sniper_run(run_id: int, db: Session = Depends(get_db)):
+def get_sniper_run(
+    run_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
     run = db.query(SniperRun).filter(SniperRun.id == run_id).first()
     if not run:
         raise HTTPException(status_code=404, detail="Sniper run not found")
@@ -44,7 +54,11 @@ def get_sniper_run(run_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/runs/{run_id}/timeline", response_model=list[WorkflowTimelineStep])
-def get_sniper_timeline(run_id: int, db: Session = Depends(get_db)):
+def get_sniper_timeline(
+    run_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
     steps = (
         db.query(SniperTimelineStep)
         .filter(SniperTimelineStep.run_id == run_id)
@@ -55,7 +69,11 @@ def get_sniper_timeline(run_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/runs/{run_id}/results", response_model=list[MatchedObject])
-def get_sniper_results(run_id: int, db: Session = Depends(get_db)):
+def get_sniper_results(
+    run_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
     matches = (
         db.query(SniperMatch)
         .filter(SniperMatch.run_id == run_id)
@@ -66,7 +84,12 @@ def get_sniper_results(run_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/runs/{run_id}/script", response_model=MagicScriptOutput)
-def regenerate_script(run_id: int, body: ScriptRegenerateRequest, db: Session = Depends(get_db)):
+def regenerate_script(
+    run_id: int,
+    body: ScriptRegenerateRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
     match = (
         db.query(SniperMatch)
         .filter(SniperMatch.run_id == run_id, SniperMatch.match_uuid == body.match_id)
@@ -103,7 +126,12 @@ def regenerate_script(run_id: int, body: ScriptRegenerateRequest, db: Session = 
 
 
 @router.post("/runs/{run_id}/actions", response_model=WorkflowActionResponse)
-def execute_action(run_id: int, body: WorkflowActionRequest, db: Session = Depends(get_db)):
+def execute_action(
+    run_id: int,
+    body: WorkflowActionRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
     run = db.query(SniperRun).filter(SniperRun.id == run_id).first()
     if not run:
         raise HTTPException(status_code=404, detail="Sniper run not found")
@@ -114,7 +142,12 @@ def execute_action(run_id: int, body: WorkflowActionRequest, db: Session = Depen
 
 
 @router.post("/runs/{run_id}/rerun", response_model=SniperRunResponse)
-def rerun_sniper(run_id: int, body: RerunSniperRequest, db: Session = Depends(get_db)):
+def rerun_sniper(
+    run_id: int,
+    body: RerunSniperRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
     original = db.query(SniperRun).filter(SniperRun.id == run_id).first()
     if not original:
         raise HTTPException(status_code=404, detail="Sniper run not found")
@@ -130,14 +163,14 @@ def rerun_sniper(run_id: int, body: RerunSniperRequest, db: Session = Depends(ge
         timeframe=original.timeframe,
         intent_mode=body.intent_mode or original.intent_mode,
         mock_mode=body.mock_mode if body.mock_mode is not None else original.mock_mode,
-        created_by=original.created_by,
+        created_by=str(current_user.get("id", "")),
     )
     new_run = orchestrator.create_and_run_sniper_workflow(db, new_payload)
     return new_run
 
 
 @router.get("/defaults", response_model=SniperDefaultsResponse)
-def get_sniper_defaults():
+def get_sniper_defaults(current_user: dict = Depends(get_current_user)):
     return SniperDefaultsResponse(
         target_object_types=[
             "any", "lead", "business", "job", "candidate", "student",
@@ -152,7 +185,10 @@ def get_sniper_defaults():
 
 
 @router.post("/osiris-rating")
-def calculate_osiris(body: OsirisRatingRequest) -> dict[str, Any]:
+def calculate_osiris(
+    body: OsirisRatingRequest,
+    current_user: dict = Depends(get_current_user),
+) -> dict[str, Any]:
     return osiris_svc.calculate_osiris_rating(
         source_object=body.source_object,
         matched_object=body.matched_object,

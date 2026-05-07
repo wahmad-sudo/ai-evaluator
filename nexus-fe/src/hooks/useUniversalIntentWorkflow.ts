@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type {
   SourceObject,
   TargetObjectType,
@@ -7,7 +7,12 @@ import type {
   MatchedObject,
   WorkflowStatus,
 } from "@/lib/intent-workflow/types";
-import { createSniperRun, getSniperRun, getSniperResults, rerunSniper } from "@/lib/intent-workflow/api";
+import {
+  createSniperRun,
+  getSniperRun,
+  getSniperResults,
+  rerunSniper,
+} from "@/lib/intent-workflow/api";
 import { useWorkflowTimeline } from "./useWorkflowTimeline";
 import { useSniperResults } from "./useSniperResults";
 import { useMagicScripting } from "./useMagicScripting";
@@ -18,6 +23,7 @@ export function useUniversalIntentWorkflow() {
   const [status, setStatus] = useState<WorkflowStatus>("idle");
   const [selectedMatch, setSelectedMatch] = useState<MatchedObject | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { timeline, isPolling } = useWorkflowTimeline(run?.id ?? null, status);
   const { results, fetchResults } = useSniperResults(run?.id ?? null);
@@ -25,12 +31,11 @@ export function useUniversalIntentWorkflow() {
   const { execute: executeAction, loading: actionLoading } = useWorkflowActions(run?.id ?? null);
 
   useEffect(() => {
-    if (!run?.id) return;
-    if (run.status === "completed" || run.status === "failed") {
-      setStatus(run.status as WorkflowStatus);
-      if (run.status === "completed") fetchResults();
-    }
-  }, [run?.status, run?.id, fetchResults]);
+    if (results.length > 0 && !selectedMatch) setSelectedMatch(results[0]);
+  }, [results, selectedMatch]);
+
+  // Clean up poll on unmount
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
   const startRun = useCallback(
     async (
@@ -38,6 +43,7 @@ export function useUniversalIntentWorkflow() {
       targetType: TargetObjectType = "any",
       opts: { geo?: string; mockMode?: boolean } = {}
     ) => {
+      if (pollRef.current) clearInterval(pollRef.current);
       setError(null);
       setStatus("pending");
       setRun(null);
@@ -46,31 +52,34 @@ export function useUniversalIntentWorkflow() {
       try {
         const created = await createSniperRun({
           source_object_type: sourceObject.object_type,
-          source_name: sourceObject.name ?? (sourceObject.company_name as string | undefined),
+          source_name:
+            (sourceObject.name as string | undefined) ??
+            (sourceObject.company_name as string | undefined),
           source_payload: sourceObject as Record<string, unknown>,
           target_object_type: targetType,
           geo: opts.geo,
-          mock_mode: opts.mockMode ?? true,
+          mock_mode: opts.mockMode ?? false,
         });
         setRun(created);
         setStatus(created.status as WorkflowStatus);
 
-        const poll = setInterval(async () => {
+        pollRef.current = setInterval(async () => {
           try {
             const fresh = await getSniperRun(created.id);
             setRun(fresh);
             if (fresh.status === "completed" || fresh.status === "failed") {
-              clearInterval(poll);
+              clearInterval(pollRef.current!);
+              pollRef.current = null;
               setStatus(fresh.status as WorkflowStatus);
               if (fresh.status === "completed") {
-                const r = await getSniperResults(fresh.id);
-                // results handled by useSniperResults via fetchResults below
-                void r;
+                const matches = await getSniperResults(fresh.id);
+                if (matches.length > 0) setSelectedMatch(matches[0]);
                 fetchResults();
               }
             }
           } catch {
-            clearInterval(poll);
+            clearInterval(pollRef.current!);
+            pollRef.current = null;
           }
         }, 2000);
       } catch (e) {
@@ -98,20 +107,8 @@ export function useUniversalIntentWorkflow() {
   );
 
   return {
-    run,
-    status,
-    timeline,
-    results,
-    selectedMatch,
-    script,
-    scriptLoading,
-    actionLoading,
-    isPolling,
-    error,
-    setSelectedMatch,
-    startRun,
-    rerun,
-    generateScript,
-    executeAction,
+    run, status, timeline, results, selectedMatch, script,
+    scriptLoading, actionLoading, isPolling, error,
+    setSelectedMatch, startRun, rerun, generateScript, executeAction,
   };
 }

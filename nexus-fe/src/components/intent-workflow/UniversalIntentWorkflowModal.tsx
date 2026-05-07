@@ -38,7 +38,7 @@ export function UniversalIntentWorkflowModal({ open, source, onClose }: Props) {
   }, [open, source]);
 
   const handleRun = () => {
-    startRun(source, targetType, { geo, mockMode: true });
+    startRun(source, targetType, { geo, mockMode: false });
   };
 
   const handleRerun = () => {
