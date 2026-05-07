@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { listItems, listResponses, submitResponse } from "@/lib/api/evaluator";
 import type { EvaluatorItem, EvaluatorResponse } from "@/types/evaluator";
 
-const RUN_ID = process.env.NEXT_PUBLIC_EVALUATOR_RUN_ID ?? "f4790bd3-210e-4657-847d-cf4e619b1d98";
+const RUN_ID = process.env.NEXT_PUBLIC_EVALUATOR_RUN_ID ?? "";
 const ORG_NAME = "VectorTechSol";
 const USER_NAME = "Waqar Ahmad";
 
@@ -17,16 +17,15 @@ export default function EvaluatorPage() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    const { data: itemsData } = await supabase.from("items").select("*").eq("run_id", RUN_ID).order("position");
-    const { data: respData } = await supabase.from("responses").select("*").eq("run_id", RUN_ID);
-    setItems((itemsData as EvaluatorItem[]) ?? []);
-    setResponses((respData as EvaluatorResponse[]) ?? []);
+    const [itemsData, respData] = await Promise.all([listItems(RUN_ID), listResponses(RUN_ID)]);
+    setItems(itemsData);
+    setResponses(respData);
   }
 
   async function save(itemId: string, score: number) {
     const existing = responses.find((r) => r.item_id === itemId && r.evaluator_name === USER_NAME);
     if (existing) return;
-    await supabase.from("responses").insert({ run_id: RUN_ID, item_id: itemId, score, evaluator_name: USER_NAME, organization_name: ORG_NAME });
+    await submitResponse({ run_id: RUN_ID, item_id: itemId, score, evaluator_name: USER_NAME, organization_name: ORG_NAME });
     load();
   }
 
@@ -61,7 +60,6 @@ export default function EvaluatorPage() {
           <p className="text-zinc-400 text-sm mt-1">{ORG_NAME} · Run ID {RUN_ID.slice(0, 8)}…</p>
         </div>
 
-        {/* Summary bar */}
         <div className="grid grid-cols-5 gap-3 mb-6">
           {stats.map(({ label, value }) => (
             <div key={label} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
@@ -72,7 +70,6 @@ export default function EvaluatorPage() {
         </div>
 
         <div className="grid grid-cols-[1fr_360px] gap-5">
-          {/* Task cards */}
           <div className="space-y-4">
             {items.map((item, i) => {
               const savedScore = itemScoreMap[item.id] ?? null;
@@ -85,7 +82,6 @@ export default function EvaluatorPage() {
                       {done ? "Completed" : "Pending Review"}
                     </span>
                   </div>
-
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <div className="bg-zinc-800/50 rounded-lg p-3">
                       <div className="text-xs text-zinc-500 mb-1">Input</div>
@@ -96,7 +92,6 @@ export default function EvaluatorPage() {
                       <div className="text-sm text-zinc-300">{item.ai_output}</div>
                     </div>
                   </div>
-
                   <div className="flex gap-2">
                     {[1, 2, 3, 4, 5].map((s) => (
                       <button
@@ -113,9 +108,7 @@ export default function EvaluatorPage() {
             })}
           </div>
 
-          {/* Right sidebar */}
           <div className="space-y-4">
-            {/* Live widgets */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
               <div className="text-sm font-semibold text-white mb-3">Live Widgets</div>
               <div className="grid grid-cols-2 gap-2">
@@ -138,7 +131,6 @@ export default function EvaluatorPage() {
               </div>
             </div>
 
-            {/* Recent activity */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
               <div className="text-sm font-semibold text-white mb-3">Recent Activity</div>
               <div className="space-y-2">

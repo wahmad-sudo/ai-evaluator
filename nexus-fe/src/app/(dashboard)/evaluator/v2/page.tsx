@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { listRuns, listItems, submitResponse } from "@/lib/api/evaluator";
 import { EvaluatorTimeline } from "@/components/evaluator";
 import type { EvaluatorRun, EvaluatorItem } from "@/types/evaluator";
 
@@ -15,25 +15,22 @@ export default function EvaluatorV2Page() {
   useEffect(() => { if (runId) loadItems(); }, [runId]);
 
   async function loadRuns() {
-    const { data } = await supabase.from("runs").select("*");
-    const r = (data as EvaluatorRun[]) ?? [];
-    setRuns(r);
-    if (r.length) setRunId(r[0].id);
+    const data = await listRuns();
+    setRuns(data);
+    if (data.length) setRunId(data[0].id);
   }
 
   async function loadItems() {
-    const { data } = await supabase.from("items").select("*").eq("run_id", runId);
-    const d = (data as EvaluatorItem[]) ?? [];
-    setItems(d);
-    if (d.length) setSelected(d.find((i) => i.task_status !== "completed") ?? d[0]);
+    const data = await listItems(runId);
+    setItems(data);
+    if (data.length) setSelected(data.find((i) => i.task_status !== "completed") ?? data[0]);
   }
 
   async function save() {
     if (!selected) return;
     const score = scores[selected.id];
     if (!score) return;
-    await supabase.from("responses").insert({ item_id: selected.id, run_id: runId, score });
-    await supabase.from("items").update({ score, task_status: "completed", ended_at: new Date().toISOString() }).eq("id", selected.id);
+    await submitResponse({ item_id: selected.id, run_id: runId, score });
     await loadItems();
   }
 
@@ -53,14 +50,11 @@ export default function EvaluatorV2Page() {
             onChange={(e) => setRunId(e.target.value)}
             value={runId}
           >
-            {runs.map((r) => (
-              <option key={r.id} value={r.id}>{r.name}</option>
-            ))}
+            {runs.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
         </div>
 
         <div className="grid grid-cols-[380px_1fr] gap-5">
-          {/* Left: task list */}
           <div className="space-y-3">
             <div className="text-xs text-zinc-500 uppercase tracking-wide font-medium">Active ({active.length})</div>
             {active.map((i) => (
@@ -73,7 +67,6 @@ export default function EvaluatorV2Page() {
                 <div className="text-xs text-zinc-500 mt-0.5">{i.description}</div>
               </div>
             ))}
-
             {done.length > 0 && (
               <>
                 <div className="text-xs text-zinc-500 uppercase tracking-wide font-medium mt-4">Completed ({done.length})</div>
@@ -86,13 +79,11 @@ export default function EvaluatorV2Page() {
             )}
           </div>
 
-          {/* Right: scoring panel */}
           <div className="space-y-4">
             {selected ? (
               <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
                 <div className="text-lg font-semibold text-white mb-1">{selected.title}</div>
                 <div className="text-sm text-zinc-400 mb-5">{selected.description}</div>
-
                 <div className="flex gap-3 mb-5">
                   {[1, 2, 3, 4, 5].map((s) => (
                     <button
@@ -105,18 +96,13 @@ export default function EvaluatorV2Page() {
                     </button>
                   ))}
                 </div>
-
-                <button
-                  onClick={save}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors"
-                >
+                <button onClick={save} className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors">
                   Save Score
                 </button>
               </div>
             ) : (
               <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 text-zinc-500 text-sm">Select a task to score.</div>
             )}
-
             <EvaluatorTimeline item={selected} />
           </div>
         </div>

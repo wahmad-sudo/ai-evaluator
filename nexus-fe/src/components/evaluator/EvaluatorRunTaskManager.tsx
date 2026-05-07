@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createRun, createItem } from "@/lib/api/evaluator";
 
 interface Props {
   activeRunId: string;
@@ -15,28 +15,16 @@ export function EvaluatorRunTaskManager({ activeRunId, reloadRuns, reloadItems }
   const [taskDescription, setTaskDescription] = useState("");
   const [taskPriority, setTaskPriority] = useState<"low" | "medium" | "high">("medium");
 
-  async function createRun() {
+  async function handleCreateRun() {
     if (!runName.trim()) return;
-    await supabase.from("runs").insert({
-      name: runName,
-      cadence,
-      start_date: new Date().toISOString().slice(0, 10),
-      end_date: new Date().toISOString().slice(0, 10),
-      status: "active",
-    });
+    await createRun({ name: runName, cadence, start_date: new Date().toISOString().slice(0, 10), status: "active" });
     setRunName("");
     await reloadRuns();
   }
 
-  async function createTask() {
+  async function handleCreateTask() {
     if (!activeRunId || !taskTitle.trim()) return;
-    await supabase.from("items").insert({
-      run_id: activeRunId,
-      title: taskTitle,
-      description: taskDescription,
-      priority: taskPriority,
-      task_status: "pending",
-    });
+    await createItem(activeRunId, { title: taskTitle, description: taskDescription, priority: taskPriority });
     setTaskTitle("");
     setTaskDescription("");
     setTaskPriority("medium");
@@ -58,7 +46,7 @@ export function EvaluatorRunTaskManager({ activeRunId, reloadRuns, reloadItems }
           <option value="weekly">Weekly</option>
           <option value="custom">Custom</option>
         </select>
-        <button className={btnClass} onClick={createRun}>Create Run</button>
+        <button className={btnClass} onClick={handleCreateRun}>Create Run</button>
       </div>
 
       <div className="border-t border-zinc-800 pt-4 space-y-2">
@@ -70,7 +58,7 @@ export function EvaluatorRunTaskManager({ activeRunId, reloadRuns, reloadItems }
           <option value="medium">Medium</option>
           <option value="high">High</option>
         </select>
-        <button className={btnClass} onClick={createTask}>Create Task</button>
+        <button className={btnClass} onClick={handleCreateTask}>Create Task</button>
       </div>
     </div>
   );

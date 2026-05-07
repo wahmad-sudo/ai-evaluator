@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { listItems, listResponses } from "@/lib/api/evaluator";
 import { EvaluatorKPIBar, EvaluatorChartsPanel, EvaluatorInsightsPanel } from "@/components/evaluator";
 import type { EvaluatorItem, EvaluatorResponse } from "@/types/evaluator";
 
-const RUN_ID = process.env.NEXT_PUBLIC_EVALUATOR_RUN_ID ?? "f4790bd3-210e-4657-847d-cf4e619b1d98";
+const RUN_ID = process.env.NEXT_PUBLIC_EVALUATOR_RUN_ID ?? "";
 
 export default function EvaluatorAnalyticsPage() {
   const [items, setItems] = useState<EvaluatorItem[]>([]);
@@ -13,29 +13,27 @@ export default function EvaluatorAnalyticsPage() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    const { data: itemData } = await supabase.from("items").select("*").eq("run_id", RUN_ID).order("position");
-    const { data: respData } = await supabase.from("responses").select("*").eq("run_id", RUN_ID);
-    const enriched = ((itemData as EvaluatorItem[]) ?? []).map((item) => {
-      const resp = (respData as EvaluatorResponse[])?.find((r) => r.item_id === item.id);
+    const [itemData, respData] = await Promise.all([listItems(RUN_ID), listResponses(RUN_ID)]);
+    const enriched = itemData.map((item) => {
+      const resp = respData.find((r) => r.item_id === item.id);
       return { ...item, score: resp?.score ?? item.score };
     });
     setItems(enriched);
-    setResponses((respData as EvaluatorResponse[]) ?? []);
+    setResponses(respData);
   }
 
   const completed = new Set(responses.map((r) => r.item_id)).size;
-  const avg = responses.length > 0
-    ? (responses.reduce((a, b) => a + (b.score ?? 0), 0) / responses.length).toFixed(2)
-    : "0.00";
+  const avg = responses.length > 0 ? (responses.reduce((a, b) => a + (b.score ?? 0), 0) / responses.length).toFixed(2) : "0.00";
   const lowCount = responses.filter((r) => (r.score ?? 0) <= 2).length;
   const highCount = responses.filter((r) => (r.score ?? 0) >= 4).length;
   const pending = Math.max(items.length - completed, 0);
 
   const alerts = lowCount === 0
-    ? [{ title: "No critical alerts", body: "No low-score evaluations in the current run." }]
+    ? [{ title: "No critical alerts", body: "No low-score evaluations in the current run.", isLow: false }]
     : responses.filter((r) => (r.score ?? 0) <= 2).map((r) => ({
         title: "Low-score evaluation",
         body: `Item ${String(r.item_id).slice(0, 8)}… scored ${r.score}/5`,
+        isLow: true,
       }));
 
   return (
@@ -58,7 +56,7 @@ export default function EvaluatorAnalyticsPage() {
               <div className="text-sm font-semibold text-white mb-3">Alerts</div>
               <div className="space-y-2">
                 {alerts.map((a, i) => (
-                  <div key={i} className={`text-xs rounded-lg px-3 py-2 ${lowCount === 0 ? "bg-green-900/20 text-green-400" : "bg-red-900/20 text-red-400"}`}>
+                  <div key={i} className={`text-xs rounded-lg px-3 py-2 ${a.isLow ? "bg-red-900/20 text-red-400" : "bg-green-900/20 text-green-400"}`}>
                     <div className="font-medium">{a.title}</div>
                     <div className="text-zinc-400 mt-0.5">{a.body}</div>
                   </div>

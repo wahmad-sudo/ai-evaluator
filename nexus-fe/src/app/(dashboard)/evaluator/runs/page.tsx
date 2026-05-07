@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { listRuns, createRun } from "@/lib/api/evaluator";
 import type { EvaluatorRun } from "@/types/evaluator";
 
-const ORG_ID = process.env.NEXT_PUBLIC_EVALUATOR_ORG_ID ?? "70386368-862f-4f4d-a2bd-ecff976756d3";
+const ORG_ID = process.env.NEXT_PUBLIC_EVALUATOR_ORG_ID;
 
 export default function EvaluatorRunsPage() {
   const [runs, setRuns] = useState<EvaluatorRun[]>([]);
@@ -16,26 +16,30 @@ export default function EvaluatorRunsPage() {
   useEffect(() => { loadRuns(); }, []);
 
   async function loadRuns() {
-    const { data, error } = await supabase.from("runs").select("*").eq("org_id", ORG_ID).order("created_at", { ascending: false });
-    if (error) { setStatus(error.message); return; }
-    setRuns((data as EvaluatorRun[]) ?? []);
+    try {
+      setRuns(await listRuns(ORG_ID));
+    } catch (e: unknown) {
+      setStatus(e instanceof Error ? e.message : "Failed to load runs");
+    }
   }
 
-  async function createRun() {
+  async function handleCreate() {
     const label = name || `${cadence.toUpperCase()} Run ${startDate}`;
-    const { error } = await supabase.from("runs").insert({
-      org_id: ORG_ID,
-      name: label,
-      cadence,
-      run_type: cadence,
-      start_date: startDate,
-      end_date: cadence === "custom" ? endDate : startDate,
-      status: "active",
-    });
-    if (error) { setStatus(error.message); return; }
-    setStatus("Run created");
-    setName("");
-    loadRuns();
+    try {
+      await createRun({
+        org_id: ORG_ID,
+        name: label,
+        cadence,
+        start_date: startDate,
+        end_date: cadence === "custom" ? endDate : startDate,
+        status: "active",
+      });
+      setStatus("Run created");
+      setName("");
+      loadRuns();
+    } catch (e: unknown) {
+      setStatus(e instanceof Error ? e.message : "Failed to create run");
+    }
   }
 
   const inputClass = "w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500";
@@ -73,7 +77,7 @@ export default function EvaluatorRunsPage() {
                 <input type="date" className={inputClass} value={endDate} onChange={(e) => setEndDate(e.target.value)} disabled={cadence !== "custom"} />
               </div>
             </div>
-            <button onClick={createRun} className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors">
+            <button onClick={handleCreate} className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors">
               Create Run
             </button>
             <div className="mt-2 text-xs text-zinc-500">Status: {status}</div>
@@ -101,9 +105,9 @@ export default function EvaluatorRunsPage() {
               <div key={r.id} className="bg-zinc-800 rounded-xl px-4 py-3 flex items-center justify-between">
                 <div>
                   <div className="text-sm font-medium text-zinc-200">{r.name}</div>
-                  <div className="text-xs text-zinc-500 mt-0.5">{r.start_date} → {r.end_date ?? r.start_date} · Run ID {String(r.id).slice(0, 8)}…</div>
+                  <div className="text-xs text-zinc-500 mt-0.5">{r.start_date} → {r.end_date ?? r.start_date} · ID {String(r.id).slice(0, 8)}…</div>
                 </div>
-                <span className="text-xs bg-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{r.cadence ?? "custom"}</span>
+                <span className="text-xs bg-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{r.cadence}</span>
               </div>
             ))}
             {runs.length === 0 && <div className="text-xs text-zinc-500">No runs yet.</div>}
